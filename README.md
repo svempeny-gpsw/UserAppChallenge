@@ -6,48 +6,76 @@ This task is intentionally small and designed to take **60 – 75 minutes**. It 
 
 ## UserList App
 
-The user list app is a small app that:
+The main bugs identified and how they were fixed
+--------------------------------------------------
 
-- Renders a list of users
-- Fetches data from the public API:
-    **https://jsonplaceholder.typicode.com/users**
-- Shows loading, success, and error states
-- Contains bugs
+1) Compilation issue: User not conforming to Identifiable
+Bug:
+List(users) failed to compile because User did not conform to Identifiable.
 
-## Your Tasks
+Fix:
+Made User conform to Identifiable:
 
-### 1. Fix the Existing Bugs
+struct User: Decodable, Identifiable { … }
 
-- The list should display user data
-- Loading and error states behave properly
+This allows SwiftUI to uniquely identify each row in the list.
 
-### 2. Implement the Refresh feature
+2) Incorrect JSON decoding shape
+Bug:
+The API client attempted to decode a { users: [...] } wrapper, but the real API response is a raw [User] array, causing decoding failures.
 
-The refresh button should:
+Fix:
+Updated decoding logic to decode [User] directly and routed decoding through a generic NetworkService:
 
-- Trigger a reload of the data
-- Show a loading state during refresh
+return try endpoint.decoder.decode([User].self, from: data)
 
-### 3. Add Unit Tests
+3) UI state updates not guaranteed on the main thread
+Bug:
+The ViewModel mutated UI state without ensuring execution on the main thread, risking race conditions and undefined UI behavior.
 
-We want to see your approach towards testing this functionality.
+Fix:
+Marked the ViewModel with @MainActor:
 
-### 4. Add a Short README
+@MainActor
+final class UsersViewModel: ObservableObject { … }
 
-Please include a short **5 – 10 line** explanation covering:
+This guarantees all state updates occur on the main thread.
 
-- The main bugs you identified
-- How you fixed them
-- Any design decisions or trade-offs you made
+4) Refresh caused flicker and cancellation errors
+Bug:
+The old implementation treated refresh like a normal load, causing the UI to flicker to a loading state and sometimes show errors when SwiftUI cancelled tasks.
 
-## Submission
+Fix:
+Introduced an isRefresh flag and handled CancellationError explicitly:
 
-Please submit a link to a repository containing your solution. We will clone the repository and run tests to ensure your solution is correct. In the interview, we discuss your changes.
+if !isRefresh { state = .loading }
+catch is CancellationError { /* ignore */ }
 
-## Time Expectation
+This keeps existing data visible during refresh and prevents cancellation from surfacing as an error.
 
-This challenge is intentionally scoped to **60 – 75 minutes**.
+5) ViewModel lifecycle misuse (@ObservedObject)
+Bug:
+The view recreated its own ViewModel, causing repeated initialization and making testing difficult.
 
-**NOTE: Please do not Reference the interviewing company in code.**
+Fix:
+Moved ViewModel creation to App and injected it into the view:
 
+UsersListView(viewModel: UsersViewModel(apiClient: apiClient))
 
+This stabilises the ViewModel lifecycle and enables dependency injection for tests.
+
+Design decisions and trade-offs
+-----------------------------------
+
+Architectural complexity:
+The new design introduces protocols, endpoints, and a network layer. This increases code complexity but improves testability, separation of concerns, and scalability.
+
+Data correctness:
+Geo.lat and Geo.lng were previously String, which allowed invalid data and prevented numeric operations.
+They are now decoded as Double with validation, ensuring:
+
+safer parsing
+
+correct mathematical usage (e.g., distance calculations)
+
+early failure on malformed API data
