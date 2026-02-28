@@ -4,7 +4,7 @@ import SwiftUI
 
 struct UsersListView: View {
     @ObservedObject var viewModel: UsersViewModel
-
+    
     var body: some View {
         NavigationStack {
             content
@@ -32,15 +32,20 @@ struct UsersListView: View {
             ContentUnavailableView("Error",
                                    systemImage: "exclamationmark.triangle",
                                    description: Text(message))
-                .safeAreaInset(edge: .bottom) {
-                    Button("Try Again") { Task { await viewModel.load(isRefresh: true) } }
-                        .buttonStyle(.borderedProminent)
-                }
+            .safeAreaInset(edge: .bottom) {
+                Button("Try Again") { Task { await viewModel.load(isRefresh: true) } }
+                    .buttonStyle(.borderedProminent)
+            }
         case .loaded(let users):
             List(users) { user in
                 UserRow(user: user)
+                    .listRowSeparator(.hidden) // Remove lines
+                    .listRowBackground(Color.clear) // Custom background
             }
-            .refreshable { await viewModel.load(isRefresh: true) } 
+            .refreshable { await viewModel.load(isRefresh: true) }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden) // Required in iOS 16+ to see your background
+            .background(LinearGradient(colors: [.blue.opacity(0.1), .white], startPoint: .top, endPoint: .bottom))
         }
     }
 }
@@ -59,9 +64,14 @@ struct UserRow: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+        }
+        .padding(.horizontal)
         .padding(.vertical, 4)
-        // Staff Tip: Adding a content shape makes the entire row
-        // tappable if you add a NavigationLink later.
-        .contentShape(Rectangle())
     }
 }
