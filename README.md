@@ -49,12 +49,10 @@ The view recreated its own ViewModel, causing repeated initialization and making
 Fix:
 Moved ViewModel creation to App and injected it into the view:
 UsersListView(viewModel: UsersViewModel(apiClient: apiClient))
-
 This stabilises the ViewModel lifecycle and enables dependency injection for tests.
 
 Design decisions and trade-offs
 -----------------------------------
-
 Architectural complexity:
 The new design introduces protocols, endpoints, and a network layer. This increases code complexity but improves testability, separation of concerns, and scalability.
 
